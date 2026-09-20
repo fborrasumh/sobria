@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SobrIA · humanizador de manuscritos académicos</title>
+<meta name="description" content="Reescribe un manuscrito académico para quitarle la retórica inflada de la IA sin tocar los datos. Reproduce el skill humanizer_academic (K. Matsui) en un único fichero HTML.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,300;0,400;0,600;1,400&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --papel:#F5F4EF;
+  --papel-alto:#FCFBF7;
+  --tinta:#171B21;
+  --tinta-suave:#5B6472;
+  --lapiz-rojo:#A8232F;
+  --lapiz-azul:#2A567F;
+  --verde-ok:#3F6B4A;
+  --linea:#D8D5CA;
+  --linea-fina:#E7E4DA;
+  --radio:3px;
+  --serif:'Spectral',Georgia,serif;
+  --sans:'Archivo','Helvetica Neue',Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--papel);
+  color:var(--tinta);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--lapiz-azul)}
+.wrap{max-width:1100px;margin:0 auto;padding:0 20px 80px}
+
+/* ---------- cabecera ---------- */
+header.hero{
+  border-bottom:1px solid var(--linea);
+  background:
+    repeating-linear-gradient(180deg,transparent 0 31px,var(--linea-fina) 31px 32px),
+    var(--papel-alto);
+  padding:44px 0 30px;
+  margin-bottom:34px;
+}
+.hero-inner{max-width:1100px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:38px;align-items:end}
+h1{
+  font-family:var(--serif);font-weight:600;font-size:clamp(38px,6vw,64px);
+  letter-spacing:-.02em;line-height:1;margin:0 0 10px;
+}
+h1 .marca{position:relative;display:inline-block}
+h1 .marca::after{
+  content:"";position:absolute;left:-2%;right:-2%;bottom:.12em;height:.16em;
+  background:var(--lapiz-rojo);opacity:.28;transform:rotate(-.6deg);border-radius:2px;
+}
+.lema{font-family:var(--serif);font-size:19px;color:var(--tinta-suave);max-width:46ch;margin:0}
+.muestra{
+  font-family:var(--serif);font-size:15px;line-height:1.7;background:var(--papel-alto);
+  border:1px solid var(--linea);border-left:3px solid var(--lapiz-rojo);padding:14px 16px;border-radius:var(--radio);
+}
+.muestra .tachado{color:var(--lapiz-rojo);text-decoration:line-through;text-decoration-thickness:1px}
+.muestra .puesto{color:var(--lapiz-azul)}
+.muestra em{display:block;font-family:var(--sans);font-style:normal;font-size:12px;color:var(--tinta-suave);margin-top:8px}
+
+/* ---------- estructura ---------- */
+section{margin:0 0 34px}
+h2{
+  font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:.04em;
+  margin:0 0 14px;padding-bottom:7px;border-bottom:1px solid var(--linea);
+  display:flex;align-items:baseline;gap:10px;
+}
+h2 .n{font-family:var(--serif);font-size:20px;font-weight:600;color:var(--lapiz-rojo);line-height:1}
+h3{font-size:14px;font-weight:600;margin:18px 0 8px}
+p.ayuda{color:var(--tinta-suave);font-size:13.5px;margin:6px 0 14px;max-width:72ch}
+.fila{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.campo{display:flex;flex-direction:column;gap:5px;min-width:180px;flex:1}
+label{font-size:12.5px;font-weight:600;color:var(--tinta-suave)}
+input[type=text],input[type=password],select,textarea{
+  font-family:var(--sans);font-size:14px;color:var(--tinta);
+  background:var(--papel-alto);border:1px solid var(--linea);border-radius:var(--radio);
+  padding:9px 11px;width:100%;
+}
+textarea{font-family:var(--serif);font-size:15.5px;line-height:1.65;resize:vertical;min-height:220px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--lapiz-azul);outline-offset:1px;border-color:transparent}
+button{
+  font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;
+  background:var(--tinta);color:var(--papel-alto);border:1px solid var(--tinta);
+  border-radius:var(--radio);padding:10px 18px;
+}
+button:hover{background:#000}
+button.sec{background:transparent;color:var(--tinta);border-color:var(--linea)}
+button.sec:hover{background:var(--papel-alto);border-color:var(--tinta-suave)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.grande{font-size:16px;padding:14px 28px;background:var(--lapiz-rojo);border-color:var(--lapiz-rojo)}
+button.grande:hover{background:#8d1b25}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--lapiz-azul);outline-offset:2px}
+.nota{font-size:12.5px;color:var(--tinta-suave)}
+
+/* ---------- entrada ---------- */
+.zona{
+  border:1px dashed var(--linea);border-radius:var(--radio);background:var(--papel-alto);
+  padding:18px;text-align:center;margin-bottom:14px;
+}
+.zona.sobre{border-color:var(--lapiz-azul);background:#EFF3F7}
+.zona p{margin:6px 0 0;font-size:13px;color:var(--tinta-suave)}
+.contador{font-size:12.5px;color:var(--tinta-suave);margin-top:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+/* ---------- patrones ---------- */
+.grupo{border:1px solid var(--linea);border-radius:var(--radio);background:var(--papel-alto);margin-bottom:10px;overflow:hidden}
+.grupo > summary{
+  cursor:pointer;padding:11px 14px;font-size:13.5px;font-weight:600;display:flex;
+  justify-content:space-between;gap:10px;align-items:center;list-style:none;
+}
+.grupo > summary::-webkit-details-marker{display:none}
+.grupo > summary:hover{background:#F1EFE8}
+.grupo .cuenta{font-family:var(--serif);font-size:13px;color:var(--tinta-suave);font-weight:400}
+.pat{display:flex;gap:10px;padding:9px 14px;border-top:1px solid var(--linea-fina);align-items:flex-start}
+.pat input{margin-top:3px;flex:0 0 auto;accent-color:var(--lapiz-rojo)}
+.pat .cuerpo{flex:1;min-width:0}
+.pat .tit{font-size:13.5px;font-weight:600}
+.pat .tit .num{font-family:var(--serif);color:var(--lapiz-rojo);margin-right:6px}
+.pat .desc{font-size:12.5px;color:var(--tinta-suave);line-height:1.45}
+.pat .solo-en{font-size:11px;color:var(--lapiz-azul);font-weight:600;margin-left:6px}
+.pat.apagada{opacity:.45}
+
+/* ---------- progreso ---------- */
+#progreso{border:1px solid var(--linea);border-left:3px solid var(--lapiz-azul);background:var(--papel-alto);padding:14px 16px;border-radius:var(--radio);margin-bottom:20px;display:none}
+#progreso.visible{display:block}
+.barra{height:5px;background:var(--linea-fina);border-radius:3px;overflow:hidden;margin:10px 0}
+.barra i{display:block;height:100%;background:var(--lapiz-azul);width:0;transition:width .3s ease}
+#bitacora{font-size:12.5px;color:var(--tinta-suave);max-height:160px;overflow:auto;font-family:var(--sans)}
+#bitacora div{padding:1px 0}
+#bitacora div.err{color:var(--lapiz-rojo)}
+#bitacora div.ok{color:var(--verde-ok)}
+
+/* ---------- resultados ---------- */
+#resultados{display:none}
+#resultados.visible{display:block}
+.pestanas{display:flex;gap:2px;border-bottom:1px solid var(--linea);margin-bottom:18px;flex-wrap:wrap}
+.pestanas button{
+  background:transparent;color:var(--tinta-suave);border:1px solid transparent;border-bottom:none;
+  border-radius:var(--radio) var(--radio) 0 0;padding:9px 15px;font-size:13.5px;margin-bottom:-1px;
+}
+.pestanas button.activa{background:var(--papel-alto);border-color:var(--linea);color:var(--tinta);font-weight:700}
+.panel{display:none}
+.panel.activo{display:block}
+.texto{
+  font-family:var(--serif);font-size:16.5px;line-height:1.72;background:var(--papel-alto);
+  border:1px solid var(--linea);border-radius:var(--radio);padding:26px 30px;white-space:pre-wrap;
+  max-width:74ch;
+}
+.texto[contenteditable=true]{outline:none}
+.parejas{display:grid;gap:14px}
+.pareja{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--linea);border-radius:var(--radio);overflow:hidden;background:var(--papel-alto)}
+.pareja > div{padding:14px 16px;font-family:var(--serif);font-size:15px;line-height:1.65}
+.pareja .antes{border-right:1px solid var(--linea);background:#FAF6F5}
+.pareja .marca{font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--tinta-suave);display:block;margin-bottom:7px}
+.pareja .antes .marca{color:var(--lapiz-rojo)}
+.pareja .despues .marca{color:var(--lapiz-azul)}
+del{background:#F6E4E4;color:var(--lapiz-rojo);text-decoration:line-through;text-decoration-thickness:1px}
+ins{background:#E3ECF4;color:var(--lapiz-azul);text-decoration:none}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--papel-alto);border:1px solid var(--linea)}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--linea-fina);vertical-align:top}
+th{font-size:12px;font-weight:700;color:var(--tinta-suave);background:#F1EFE8}
+td.num{font-family:var(--serif);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mejor{color:var(--verde-ok);font-weight:600}
+.peor{color:var(--lapiz-rojo);font-weight:600}
+.medidor{height:6px;background:var(--linea-fina);border-radius:3px;overflow:hidden;min-width:90px;margin-top:5px}
+.medidor i{display:block;height:100%}
+.aviso{border:1px solid var(--linea);border-left:3px solid var(--lapiz-rojo);background:#FBF4F4;padding:12px 15px;border-radius:var(--radio);margin-bottom:10px;font-size:13.5px}
+.aviso.ok{border-left-color:var(--verde-ok);background:#F2F6F2}
+.aviso b{display:block;margin-bottom:3px}
+.exportar{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 0}
+
+footer{border-top:1px solid var(--linea);margin-top:50px;padding-top:22px;font-size:12.5px;color:var(--tinta-suave);max-width:78ch}
+footer p{margin:0 0 9px}
+footer .cautela{border-left:3px solid var(--lapiz-rojo);padding-left:12px}
+
+@media (max-width:860px){
+  .hero-inner{grid-template-columns:1fr;gap:24px;align-items:start}
+  .pareja{grid-template-columns:1fr}
+  .pareja .antes{border-right:none;border-bottom:1px solid var(--linea)}
+  .texto{padding:20px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <h1><span class="marca">SobrIA</span></h1>
+      <p class="lema">Le quita a un manuscrito la retórica inflada de la IA sin tocar ni un dato. Lápiz rojo para lo que sobra, lápiz azul para lo que lo sustituye.</p>
+    </div>
+    <div class="muestra">
+      <span class="tachado">La insuficiencia cardíaca representa un desafío pivotal en el cambiante panorama del manejo de la diabetes, subrayando la importancia crucial de abordar las comorbilidades.</span><br>
+      <span class="puesto">La insuficiencia cardíaca es muy prevalente en pacientes con diabetes: afecta a más de uno de cada cinco mayores de 65 años con diabetes tipo 2.</span>
+      <em>34 patrones de «Signs of AI writing» adaptados a la literatura médica</em>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section id="s-texto">
+  <h2><span class="n">1</span> El manuscrito</h2>
+  <p class="ayuda">Sube un Markdown, un Word o un PDF, o pega el texto. El fichero se lee en tu navegador; al modelo solo viaja el texto.</p>
+  <div class="zona" id="zona">
+    <input type="file" id="fichero" accept=".md,.markdown,.txt,.docx,.pdf" style="display:none">
+    <button class="sec" id="btn-fichero">Elegir fichero</button>
+    <p>.md · .txt · .docx · .pdf — o arrastra el fichero aquí</p>
+  </div>
+  <textarea id="entrada" placeholder="Pega aquí el manuscrito o la sección que quieras revisar."></textarea>
+  <div class="contador">
+    <span id="cuenta">0 palabras · 0 párrafos</span>
+    <span id="origen"></span>
+  </div>
+</section>
+
+<section id="s-ajustes">
+  <h2><span class="n">2</span> Modelo e idioma</h2>
+  <div class="fila">
+    <div class="campo" style="flex:2 1 320px">
+      <label for="apikey">Clave de OpenAI</label>
+      <input type="password" id="apikey" placeholder="sk-..." autocomplete="off">
+      <span class="nota">Se guarda solo en este navegador (<code>ia_openai_key</code>), compartida con el resto del catálogo.</span>
+    </div>
+    <div class="campo">
+      <label for="modelo">Modelo</label>
+      <select id="modelo">
+        <option value="gpt-4o-mini">gpt-4o-mini (rápido y barato)</option>
+        <option value="gpt-5.6-luna">gpt-5.6 luna</option>
+        <option value="gpt-5.6-terra">gpt-5.6 terra</option>
+        <option value="gpt-5.6-sol">gpt-5.6 sol (más cuidadoso)</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label for="idioma">Idioma del texto</label>
+      <select id="idioma">
+        <option value="auto">Detectar</option>
+        <option value="es">Español</option>
+        <option value="en">Inglés</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label for="disciplina">Ámbito</label>
+      <select id="disciplina">
+        <option value="medica">Médico y biomédico</option>
+        <option value="ciencias">Ciencias experimentales</option>
+        <option value="sociales">Ciencias sociales y educación</option>
+        <option value="general">Académico general</option>
+      </select>
+    </div>
+  </div>
+  <div class="fila" style="margin-top:14px">
+    <div class="campo" style="flex:1 1 100%">
+      <label for="voz">Muestra de voz del autor (opcional)</label>
+      <textarea id="voz" style="min-height:90px;font-size:14px" placeholder="Pega dos o tres párrafos tuyos anteriores a 2023. El modelo calibrará las sustituciones con tu repertorio de conectores y tu longitud de frase habitual en lugar de con un «humano genérico»."></textarea>
+    </div>
+  </div>
+</section>
+
+<section id="s-patrones">
+  <h2><span class="n">3</span> Qué corregir</h2>
+  <p class="ayuda">Los 34 patrones del skill, activables uno a uno. El 34 (ritmo de frase) se aplica siempre antes que los de vocabulario: es el de mayor efecto.</p>
+  <div class="fila" style="margin-bottom:12px">
+    <button class="sec" id="btn-todos">Activar todos</button>
+    <button class="sec" id="btn-ninguno">Desactivar todos</button>
+    <button class="sec" id="btn-minimo">Solo lo esencial</button>
+    <label style="display:flex;align-items:center;gap:7px;font-size:13px;margin-left:auto">
+      <input type="checkbox" id="chk-audit" checked style="accent-color:var(--lapiz-rojo)"> Segunda pasada de autoauditoría
+    </label>
+  </div>
+  <div id="lista-patrones"></div>
+</section>
+
+<section id="s-lanzar">
+  <div class="fila">
+    <button class="grande" id="btn-humanizar">Humanizar el manuscrito</button>
+    <button class="sec" id="btn-medir">Solo medir huellas</button>
+    <button class="sec" id="btn-parar" style="display:none">Detener</button>
+  </div>
+  <div id="progreso">
+    <div><b id="paso-titulo">Preparando</b></div>
+    <div class="barra"><i id="barra"></i></div>
+    <div id="bitacora"></div>
+  </div>
+</section>
+
+<section id="resultados">
+  <h2><span class="n">4</span> Resultado</h2>
+  <div class="pestanas" id="pestanas">
+    <button data-p="p-texto" class="activa">Texto</button>
+    <button data-p="p-comparar">Comparación</button>
+    <button data-p="p-metricas">Huellas</button>
+    <button data-p="p-cambios">Cambios</button>
+    <button data-p="p-avisos">Verificación</button>
+  </div>
+  <div class="panel activo" id="p-texto">
+    <p class="ayuda">Puedes editar directamente aquí antes de exportar. La firma final siempre es tuya.</p>
+    <div class="texto" id="salida" contenteditable="true" spellcheck="false"></div>
+    <div class="exportar">
+      <button class="sec" id="exp-md">Markdown</button>
+      <button class="sec" id="exp-docx">Word</button>
+      <button class="sec" id="exp-pdf">PDF</button>
+      <button class="sec" id="exp-copiar">Copiar</button>
+      <button class="sec" id="exp-informe">Informe de cambios</button>
+    </div>
+  </div>
+  <div class="panel" id="p-comparar"><div class="parejas" id="parejas"></div></div>
+  <div class="panel" id="p-metricas"><div id="metricas"></div></div>
+  <div class="panel" id="p-cambios"><div id="cambios"></div></div>
+  <div class="panel" id="p-avisos"><div id="avisos"></div></div>
+</section>
+
+<footer>
+  <p class="cautela"><b>Para qué no sirve.</b> SobrIA no sirve para eludir detectores de IA ni marcas de procedencia, y no exime de declarar el uso de IA donde la revista, la convocatoria o la universidad lo exijan. Un texto escrito por una IA sigue siendo un texto escrito por una IA después de pasar por aquí: lo que cambia es que deja de sonar a plantilla, no quién lo escribió. Revisa siempre el resultado frente al original antes de firmarlo.</p>
+  <p>Reproduce en un único fichero HTML el skill <a href="https://github.com/matsuikentaro1/humanizer_academic" target="_blank" rel="noopener">humanizer_academic</a> de Kentaro Matsui (licencia MIT), basado a su vez en <a href="https://github.com/blader/humanizer" target="_blank" rel="noopener">blader/humanizer</a> y en la guía <a href="https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing" target="_blank" rel="noopener">Wikipedia: Signs of AI writing</a>. El patrón 7 se apoya en Matsui K. <i>Delving Into PubMed Records</i>. Perspect Med Educ. 2025;14(1):882-890. <a href="https://doi.org/10.5334/pme.1929" target="_blank" rel="noopener">doi:10.5334/pme.1929</a>.</p>
+  <p>Fernando Borrás Rocher · Universidad Miguel Hernández de Elche · <a href="https://fborrasumh.github.io/ia" target="_blank" rel="noopener">Catálogo de herramientas</a></p>
+</footer>
+
+</div>
+<script>
+/* ===========================================================
+   SobrIA — humanizador de manuscritos académicos
+   Reproduce el skill humanizer_academic (K. Matsui, MIT).
+   =========================================================== */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+
+/* ---------- 1. Los 34 patrones ---------- */
+const GRUPOS = [
+  {id:'ritmo',  nombre:'Ritmo y estructura', nota:'se aplica primero'},
+  {id:'contenido', nombre:'Contenido'},
+  {id:'lengua', nombre:'Lengua y gramática'},
+  {id:'estilo', nombre:'Estilo'},
+  {id:'relleno', nombre:'Relleno y cautelas'},
+  {id:'lexico', nombre:'Elecciones léxicas del inglés académico'},
+  {id:'cohesion', nombre:'Cohesión y conectores'}
+];
+
+const PATRONES = [
+  {n:34,g:'ritmo',on:true,t:'Ritmo de frase y variabilidad',
+   d:'La IA converge en frases de 15 a 25 palabras con la misma apertura nominal. Mezcla frases de menos de 15 y de más de 30, varía las aperturas (sintagma preposicional, subordinada, conector) y usa punto y coma. No introduzcas dramatismo staccato ni toques datos ni vocabulario.',
+   r:'PRIMERO: reestructura el ritmo. Varía la longitud de las frases (algunas <15 palabras, algunas >30) y las aperturas; si tres frases seguidas empiezan por sintagma nominal sujeto, reescribe una para abrir con sintagma preposicional, subordinada o conector. Usa punto y coma para unir cláusulas relacionadas. No alteres datos, terminología técnica ni la voz (activa/pasiva) del original. No introduzcas frases muy cortas nuevas con efecto retórico. Respeta las frases cortas del autor que enuncian una afirmación: no las fusiones con la siguiente.'},
+
+  {n:1,g:'contenido',on:true,t:'Inflación de importancia',
+   d:'«representa un desafío pivotal en el cambiante panorama», «subraya la importancia crucial», «marca un punto de inflexión».',
+   r:'Elimina las afirmaciones sobre la trascendencia, el legado o las tendencias generales (pivotal, panorama cambiante, punto de inflexión, subraya su importancia, sienta las bases de). Sustitúyelas por el dato concreto que había detrás.'},
+  {n:2,g:'contenido',on:true,t:'Notoriedad y cobertura',
+   d:'«ensayo histórico dirigido por investigadores de renombre en centros prestigiosos».',
+   r:'Elimina las apelaciones a la notoriedad (histórico, de renombre, prestigioso, amplia repercusión mediática) y deja el hecho verificable: número de pacientes, centros, países.'},
+  {n:3,g:'contenido',on:true,t:'Análisis superficiales en gerundio',
+   d:'Coletillas del tipo «poniendo de manifiesto el efecto cardioprotector» pegadas al final de una frase con datos.',
+   r:'Elimina las coletillas en gerundio o participio presente que añaden profundidad falsa (poniendo de manifiesto, subrayando, destacando, reflejando). Deja el dato sin interpretación añadida, o convierte la interpretación en una frase propia con contenido.'},
+  {n:4,g:'contenido',on:true,t:'Lenguaje promocional',
+   d:'«este estudio revolucionario demuestra el profundo impacto de…».',
+   r:'Elimina el lenguaje publicitario (revolucionario, pionero, profundo impacto, notable, impresionante, apuesta decidida por). Enuncia el resultado en términos neutros.'},
+  {n:5,g:'contenido',on:true,t:'Atribuciones vagas',
+   d:'«los estudios han demostrado», «los expertos sostienen» sin cita.',
+   r:'Sustituye las atribuciones vagas y sin respaldo (los estudios han demostrado, los expertos sostienen, diversas fuentes) por la fuente concreta que ya aparezca en el texto. EXCEPCIÓN: mantén intactas las atribuciones que van seguidas de cita o de un dato concreto: son escritura académica normal.'},
+  {n:6,g:'contenido',on:true,t:'Secciones formulaicas de retos y perspectivas',
+   d:'«pese a los retos… el futuro se presenta prometedor».',
+   r:'Elimina los bloques formulaicos de retos y perspectivas de futuro. Sustitúyelos por las limitaciones concretas del trabajo, enunciadas una a una.'},
+
+  {n:7,g:'lengua',on:true,t:'Vocabulario característico de la IA',
+   d:'crucial, clave, pivotal, panorama, profundizar, fomentar, holístico, multifacético, entramado, poner de relieve, valioso.',
+   r:'Elimina o sustituye por palabras llanas el vocabulario sobrerrepresentado tras 2023: crucial, clave (adjetivo), pivotal, panorama (abstracto), profundizar/delve, fomentar, holístico, multifacético, entramado, interacción compleja, poner de relieve, subrayar, testimonio de, valioso, integral/comprehensive en uso abstracto. EXCEPCIÓN: «Además»/«Additionally» se permite una vez por párrafo; solo se marca su uso mecánico. Si lo quitas, no lo borres en seco: sustitúyelo o reestructura.'},
+  {n:8,g:'lengua',on:true,t:'Evitación del verbo ser',
+   d:'«actúa como», «se erige en», «representa» donde bastaba «es».',
+   r:'Sustituye las perífrasis que evitan el verbo ser o estar (actúa como, se erige en, constituye, representa, ofrece, presenta) por «es» o «tiene» cuando el sentido es ese.'},
+  {n:9,g:'lengua',on:true,t:'Paralelismos negativos',
+   d:'«no solo X, sino también Y»; «no se trata de X, es Y».',
+   r:'Deshaz los paralelismos negativos repetidos: «no solo X sino también Y» pasa a «X e Y». Se admite un uso natural por párrafo (véase el patrón 27); solo corrige el abuso.'},
+  {n:10,g:'lengua',on:true,t:'Regla de tres',
+   d:'«eficacia, seguridad y tolerabilidad» forzado una y otra vez.',
+   r:'Deshaz las enumeraciones forzadas de tres elementos cuando el contenido no las pide. Usa el número natural de elementos.'},
+  {n:11,g:'lengua',on:true,t:'Variación elegante y consistencia terminológica',
+   d:'«pacientes… participantes… sujetos» para la misma cohorte.',
+   r:'Un concepto, un término, en todo el texto. Deshaz la rotación de sinónimos para la misma cohorte (pacientes/participantes/sujetos) o el mismo hallazgo (asociación/relación/vínculo). La repetición del término técnico es una virtud, no un defecto.'},
+  {n:12,g:'lengua',on:true,t:'Rangos falsos',
+   d:'«desde la función renal hasta los desenlaces cardíacos», que no forman escala.',
+   r:'Deshaz las construcciones «desde X hasta Y» cuando X e Y no están en una escala real. Enumera directamente.'},
+
+  {n:13,g:'estilo',on:true,t:'Rayas largas: tolerancia cero',
+   d:'Ni una sola raya em (—) en la salida. Sin excepciones.',
+   r:'Sustituye TODAS las rayas largas (—, –). Inciso o aposición: comas. Aclaración: paréntesis. Corte de cláusula: punto o punto y coma. No hay ningún uso aceptable en la salida, por natural que parezca.'},
+  {n:14,g:'estilo',on:true,t:'Títulos en mayúsculas iniciales',
+   d:'«Análisis Estadístico Y Variables Principales».',
+   r:'Pon los títulos y epígrafes en mayúscula solo en la primera palabra y en los nombres propios.'},
+  {n:15,g:'estilo',on:true,t:'Comillas y apóstrofos tipográficos',
+   d:'Comillas curvas y apóstrofos inclinados procedentes del generador.',
+   r:'Convierte las comillas curvas y los apóstrofos tipográficos en sus versiones rectas.'},
+
+  {n:16,g:'relleno',on:true,t:'Muletillas',
+   d:'«con el fin de», «debido al hecho de que», «es importante señalar que».',
+   r:'Sustituye las muletillas por su forma breve: «con el fin de» → «para»; «debido al hecho de que» → «porque»; elimina «es importante señalar que» cuando no añade nada.'},
+  {n:17,g:'relleno',on:true,t:'Cautelas apiladas',
+   d:'«podría sugerir que tendría el potencial de conferir posibles beneficios».',
+   r:'Reduce las cautelas apiladas a una o dos capas: «podría sugerir que tendría el potencial de conferir» → «sugiere que podría reducir».'},
+  {n:18,g:'relleno',on:true,t:'Conclusiones genéricas',
+   d:'«el futuro se presenta prometedor».',
+   r:'Sustituye las conclusiones genéricas y optimistas por el hallazgo concreto y su implicación específica.'},
+
+  {n:19,g:'lexico',on:true,en:true,t:'«linked to» → «associated with»',
+   d:'Solo inglés. Dependiente del contexto.',
+   r:'En inglés: sustituye «has been linked to» por «has been reported to be associated with» cuando se describe una asociación estadística.'},
+  {n:20,g:'lexico',on:true,en:true,t:'«Beyond» → «In addition to»',d:'Solo inglés.',
+   r:'En inglés: sustituye «Beyond the association with…» por «In addition to the association with…».'},
+  {n:21,g:'lexico',on:true,en:true,t:'«via» → «through»',d:'Solo inglés.',
+   r:'En inglés: sustituye «via» por «through» salvo en usos técnicos consolidados.'},
+  {n:22,g:'lexico',on:true,en:true,t:'Cautela insuficiente',d:'Solo inglés: «may reduce» → «may help reduce».',
+   r:'En inglés: para afirmaciones observacionales, amortigua la causalidad con una palabra más: «may reduce» → «may help reduce». No es lo mismo que el apilamiento del patrón 17.'},
+  {n:23,g:'lexico',on:true,t:'Expresiones condensadas artificialmente',
+   d:'«ciclo fatiga–somnolencia», «refuerzo mutuo».',
+   r:'Expande las expresiones sobrecondensadas: los compuestos unidos por guion («ciclo fatiga–somnolencia» → «ciclo de fatiga y somnolencia») y los abstractos taquigráficos («refuerzo mutuo» → «un ciclo que podría autorreforzarse, en el que cada conducta agrava la otra»).'},
+  {n:24,g:'lexico',on:true,t:'«donde» / «where» como conector no locativo',
+   d:'«…en el nivel más intensivo, donde el uso casi diario era…».',
+   r:'Reescribe los «donde» (o «where») que no se refieren a un lugar, una cohorte o una condición definida: prefiere «con» + sintagma, un paréntesis o una frase nueva. Evita «in which» como sustituto por defecto.'},
+  {n:25,g:'lexico',on:true,t:'«yield» / «arrojar» como verbo de resultado',
+   d:'«no arrojó estimaciones estables».',
+   r:'Sustituye «yield/arrojar» por un verbo más preciso: producir, proporcionar, generar; para resultados negativos, «no consiguió producir».'},
+  {n:26,g:'lexico',on:true,en:true,t:'Ajustes léxicos menores',d:'Solo inglés: remain → be; given → due to.',
+   r:'En inglés: «remain speculative» → «are still speculative»; «given the small sizes» → «due to the small sizes».'},
+
+  {n:27,g:'cohesion',on:true,t:'Conservar los marcadores lógicos',
+   d:'Aunque, mientras que, por tanto, a partir de estos resultados: son buena escritura humana, no huellas de IA.',
+   r:'NO elimines los conectores que hacen explícita la lógica (aunque, mientras que, por tanto, así pues, a partir de estos resultados, como era de esperar, en línea con trabajos previos). Regla: si la expresión infla el sentido, se quita; si lo hace explícito, se queda. Varía el conector solo cuando se repetiría el mismo cerca, eligiendo otro del mismo grupo lógico; nunca conectores raros como decoración.'},
+  {n:28,g:'cohesion',on:true,t:'Recontextualizar enlaces sobrecondensados',
+   d:'«necesidades no cubiertas de hablar de sus dificultades».',
+   r:'Expande los enlaces semánticos demasiado directos hasta una formulación natural: «necesidades no cubiertas de hablar de» → «necesidades no cubiertas a la hora de hablar de».'},
+  {n:29,g:'cohesion',on:true,t:'Adverbios ornamentales',
+   d:'notablemente, drásticamente, profundamente, críticamente.',
+   r:'Elimina los adverbios que solo enfatizan (notablemente, marcadamente, drásticamente, profundamente, críticamente, enormemente, significativamente sin prueba estadística detrás). CONSERVA los funcionales, que informan: aproximadamente, ligeramente, moderadamente, de forma consistente, solo, en gran medida. Regla: quítalo mentalmente; si no se pierde información, era ornamental. SIEMPRE que quites uno, reestructura la frase (interacción crítica con el patrón 34).'},
+  {n:30,g:'cohesion',on:true,t:'Nunca borrar un conector en seco',
+   d:'Quitar la transición sin sustituirla deja prosa entrecortada, que es a su vez huella de limpieza automática.',
+   r:'Cuando una corrección elimine una transición o la cláusula que enlazaba con la frase anterior, restituye el enlace: sustituye por otro conector natural, retoma un sustantivo clave de la frase anterior, o funde las dos frases con una conjunción explícita. Editar, no amputar.'},
+  {n:31,g:'cohesion',on:true,t:'Cohesión del párrafo',
+   d:'Cada frase enlaza con la anterior; el párrafo empieza enunciando lo que afirma.',
+   r:'Comprobación final por párrafo: (a) la primera frase enuncia lo que el párrafo afirma; (b) desde la segunda, cada frase enlaza con la anterior por conector o por repetición de un término clave; (c) sobreviven los marcadores de contraste o continuidad entre párrafos (sin embargo, por el contrario, en conjunto, tomados en conjunto). La prosa entrecortada no es una salida aceptable.'},
+  {n:32,g:'cohesion',on:true,t:'Repetición parafrástica',
+   d:'«en otras palabras», «es decir», «dicho de otro modo» seguidos de lo mismo.',
+   r:'Enuncia cada afirmación una sola vez. Elimina las reformulaciones que no añaden información y conserva la versión más precisa. EXCEPCIÓN: la traducción de un estadístico a su lectura clínica sí añade información.'},
+  {n:33,g:'cohesion',on:true,t:'Frases de evaluación sin contenido',
+   d:'«este es un hallazgo destacable», «esta observación tiene relevancia clínica».',
+   r:'Elimina las frases sueltas que solo califican la importancia de un hallazgo sin dato, mecanismo ni comparación. Si el hallazgo importa, muestra por qué. EXCEPCIÓN: vale si la evaluación continúa con una razón concreta en la misma frase.'}
+];
+
+/* ---------- 2. Medición local de huellas ---------- */
+const VOC_IA = {
+  es:['crucial','cruciales','clave','pivotal','panorama','profundizar','fomentar','holístico','holística','multifacético','multifacética','entramado','interacción compleja','poner de relieve','pone de relieve','subraya','subrayando','testimonio','valioso','valiosa','integral','revolucionario','pionero','profundo impacto','notable','notablemente','marcadamente','drásticamente','críticamente','enormemente','impresionante','sin precedentes','en constante evolución','punto de inflexión','sienta las bases','cambiante','rico en','vibrante','robusto','sólido compromiso','navegar por','aprovechar','desbloquear','empoderar','sinergia','ecosistema','hoja de ruta','en el corazón de'],
+  en:['crucial','pivotal','key role','landscape','delve','delving','foster','fostering','holistic','multifaceted','tapestry','interplay','intricate','underscore','underscores','underscoring','highlight the','highlighting','showcase','showcases','testament','valuable','comprehensive','groundbreaking','renowned','profound','remarkable','remarkably','markedly','strikingly','dramatically','critically','vibrant','robust','seamless','leverage','navigate the','unlock','empower','realm','ever-evolving','stands as','serves as','plays a vital','in the heart of','a testament to']
+};
+const PARAFRASIS = /\b(en otras palabras|es decir|dicho de otro modo|dicho de otra forma|en definitiva|in other words|that is,|put differently|essentially,|simply put)\b/gi;
+const EVALUACION = /\b(este (es un|constituye un) hallazgo (destacable|importante|relevante|significativo)|esta observación (es|tiene) (relevante|relevancia)|this is (an? )?(important|significant|noteworthy|meaningful) finding|this observation is|this finding has important implications)\b/gi;
+const PARALELISMO = /\b(no solo\b[^.]{0,80}\bsino también|not only\b[^.]{0,80}\bbut also)\b/gi;
+const MULETILLAS = /\b(con el fin de|debido al hecho de que|es importante señalar que|cabe destacar que|in order to|due to the fact that|it is important to note that|it should be noted that)\b/gi;
+const HEDGE = /\b(podría|puede que|posiblemente|potencialmente|sugiere que|parecería|may|might|could|potentially|possibly|suggests that|appears to|seems to)\b/gi;
+
+function frasear(t){
+  return (t||'').replace(/\s+/g,' ')
+    .replace(/([.!?…])\s+(?=[«"'(¿¡A-ZÁÉÍÓÚÑÜ0-9])/g,'$1\u0001')
+    .split('\u0001')
+    .map(s=>s.trim()).filter(s=>s.length>1);
+}
+function palabras(t){ return (t||'').trim().split(/\s+/).filter(Boolean); }
+function parrafos(t){ return (t||'').split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean); }
+
+function contarLista(t, lista){
+  const bajo = ' '+t.toLowerCase()+' ';
+  let n=0;
+  for(const w of lista){
+    const re = new RegExp('(?:^|[^\\p{L}])'+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\p{L}])','giu');
+    n += (bajo.match(re)||[]).length;
+  }
+  return n;
+}
+function aperturasRepetidas(frases){
+  let max=0, run=1;
+  const clase = f=>{
+    const p = f.replace(/^[«"'(]/,'').split(/\s+/)[0]||'';
+    if(/^(sin|no|aunque|mientras|por|para|en|a|de|con|tras|durante|entre|desde|hasta|however|although|while|in|on|at|for|after|during|between|from|despite|based|given|to)$/i.test(p.replace(/[,.:;]/,''))) return 'conector';
+    return 'nominal';
+  };
+  for(let i=1;i<frases.length;i++){
+    if(clase(frases[i])===clase(frases[i-1]) && clase(frases[i])==='nominal'){ run++; max=Math.max(max,run); }
+    else run=1;
+  }
+  return Math.max(max, frases.length?1:0);
+}
+function medir(texto){
+  const t = texto||'';
+  const fr = frasear(t), pal = palabras(t), np = Math.max(pal.length,1);
+  const largos = fr.map(f=>palabras(f).length);
+  const media = largos.length? largos.reduce((a,b)=>a+b,0)/largos.length : 0;
+  const dt = largos.length>1 ? Math.sqrt(largos.reduce((a,b)=>a+(b-media)**2,0)/(largos.length-1)) : 0;
+  const idioma = detectarIdioma(t);
+  const voc = contarLista(t, VOC_IA[idioma==='en'?'en':'es']) + contarLista(t, VOC_IA[idioma==='en'?'es':'en'])*0.5;
+  const m = {
+    palabras: pal.length,
+    frases: fr.length,
+    mediaFrase: media,
+    dtFrase: dt,
+    cortas: largos.filter(l=>l<15).length,
+    largas: largos.filter(l=>l>30).length,
+    rachaNominal: aperturasRepetidas(fr),
+    rayas: (t.match(/[—–]/g)||[]).length,
+    comillas: (t.match(/[\u201C\u201D\u2018\u2019]/g)||[]).length,
+    vocIA: voc/np*1000,
+    parafrasis: (t.match(PARAFRASIS)||[]).length/np*1000,
+    evaluacion: (t.match(EVALUACION)||[]).length,
+    paralelismo: (t.match(PARALELISMO)||[]).length,
+    muletillas: (t.match(MULETILLAS)||[]).length/np*1000,
+    hedge: (t.match(HEDGE)||[]).length/np*1000,
+    reglaTres: (t.match(/\b\w+(?:\s\w+)?,\s\w+(?:\s\w+)?\s(?:y|e|and)\s\w+/gi)||[]).length/np*1000
+  };
+  m.indice = indiceHuella(m);
+  return m;
+}
+function indiceHuella(m){
+  // 0 = sin huellas visibles, 100 = saturado. Ponderado como en el skill: el ritmo pesa más.
+  const ritmo = Math.min(1, Math.max(0, (12 - m.dtFrase)/7)) * 40
+              + Math.min(1, Math.max(0, (m.rachaNominal-2)/4)) * 12;
+  const lexico = Math.min(1, m.vocIA/14) * 22;
+  const estilo = Math.min(1, (m.rayas*1.5 + m.comillas*0.4)/8) * 8;
+  const relleno = Math.min(1, (m.muletillas+m.parafrasis)/8) * 10
+                + Math.min(1, (m.evaluacion+m.paralelismo)/4) * 8;
+  return Math.round(Math.min(100, ritmo+lexico+estilo+relleno));
+}
+function detectarIdioma(t){
+  const sel = $('#idioma') ? $('#idioma').value : 'auto';
+  if(sel!=='auto') return sel;
+  const es = (t.match(/\b(de|la|los|que|con|para|una|del|por|las|se|en)\b/gi)||[]).length;
+  const en = (t.match(/\b(the|of|and|with|that|for|was|were|this|from|which)\b/gi)||[]).length;
+  return en > es ? 'en' : 'es';
+}
+
+/* ---------- 3. Guardia de integridad ---------- */
+function extraerCifras(t){
+  const out=[];
+  const re = /(?:\d{1,3}(?:[.,]\d+)?\s?%|\bp\s?[<>=]\s?0?[.,]\d+|\b\d+[.,]\d+\b|\b\d{2,}\b|\bIC\s?95\s?%|\b95\s?%\s?CI)/gi;
+  let m; while((m=re.exec(t))!==null) out.push(m[0].replace(/\s+/g,' ').trim());
+  return out;
+}
+function extraerCitas(t){
+  const out=[];
+  const re = /(\([A-ZÁÉÍÓÚÑ][\wáéíóúñ'’-]+(?:\s(?:et al\.?|y cols\.?|and|&)\s?[\wáéíóúñ'’-]*)?,?\s?\d{4}[a-z]?\)|\[\d{1,3}(?:[,–-]\s?\d{1,3})*\])/g;
+  let m; while((m=re.exec(t))!==null) out.push(m[0]);
+  return out;
+}
+function normNum(s){ return s.toLowerCase().replace(/\s+/g,'').replace(/,/g,'.'); }
+function verificar(orig, nuevo){
+  const avisos=[];
+  const cifOrig = extraerCifras(orig), cifNue = new Set(extraerCifras(nuevo).map(normNum));
+  const faltan = [...new Set(cifOrig.map(normNum))].filter(c=>!cifNue.has(c));
+  if(faltan.length) avisos.push({tipo:'cifras', nivel:'alto', detalle:faltan});
+  const citOrig = [...new Set(extraerCitas(orig))], citNue = new Set(extraerCitas(nuevo));
+  const faltanCit = citOrig.filter(c=>!citNue.has(c));
+  if(faltanCit.length) avisos.push({tipo:'citas', nivel:'alto', detalle:faltanCit});
+  const rayas = (nuevo.match(/[—–]/g)||[]).length;
+  if(rayas) avisos.push({tipo:'rayas', nivel:'medio', detalle:[rayas+' raya(s) larga(s) todavía en el texto']});
+  const pO = parrafos(orig).length, pN = parrafos(nuevo).length;
+  if(pN !== pO) avisos.push({tipo:'parrafos', nivel:'bajo', detalle:[`El original tenía ${pO} párrafos y el resultado tiene ${pN}`]});
+  const rO = palabras(orig).length, rN = palabras(nuevo).length;
+  const varia = rO? Math.round((rN-rO)/rO*100) : 0;
+  if(Math.abs(varia) > 25) avisos.push({tipo:'extension', nivel:'medio', detalle:[`La extensión ha cambiado un ${varia>0?'+':''}${varia} %`]});
+  return avisos;
+}
+function limpiarTipografia(t){
+  return t.replace(/[\u201C\u201D]/g,'"').replace(/[\u2018\u2019]/g,"'")
+          .replace(/\s?[—–]\s?/g, (m)=> m.includes(' ')? ', ' : ', ')
+          .replace(/,\s*,/g,',').replace(/\s+([,.;:])/g,'$1');
+}
+
+/* ---------- 4. Interfaz ---------- */
+const estado = {texto:'', salida:'', cambios:[], avisos:[], antes:null, despues:null, parar:false, origen:''};
+
+function pintarPatrones(){
+  const cont = $('#lista-patrones'); cont.innerHTML='';
+  for(const g of GRUPOS){
+    const lista = PATRONES.filter(p=>p.g===g.id);
+    if(!lista.length) continue;
+    const det = document.createElement('details');
+    det.className='grupo'; det.open = (g.id==='ritmo');
+    det.innerHTML = `<summary>${g.nombre}${g.nota?' · '+g.nota:''}<span class="cuenta" data-g="${g.id}"></span></summary>`;
+    for(const p of lista){
+      const fila = document.createElement('div');
+      fila.className='pat'; fila.dataset.n=p.n;
+      fila.innerHTML = `<input type="checkbox" id="pat-${p.n}" ${p.on?'checked':''}>
+        <div class="cuerpo">
+          <div class="tit"><label for="pat-${p.n}" style="font-size:13.5px;color:var(--tinta);cursor:pointer"><span class="num">${p.n}</span>${p.t}</label>${p.en?'<span class="solo-en">solo inglés</span>':''}</div>
+          <div class="desc">${p.d}</div>
+        </div>`;
+      det.appendChild(fila);
+    }
+    cont.appendChild(det);
+  }
+  cont.addEventListener('change', e=>{ if(e.target.type==='checkbox'){ guardarAjustes(); actualizarCuentas(); }});
+  actualizarCuentas();
+}
+function actualizarCuentas(){
+  for(const g of GRUPOS){
+    const lista = PATRONES.filter(p=>p.g===g.id);
+    const on = lista.filter(p=>$('#pat-'+p.n) && $('#pat-'+p.n).checked).length;
+    const el = document.querySelector(`.cuenta[data-g="${g.id}"]`);
+    if(el) el.textContent = `${on}/${lista.length}`;
+  }
+  const idioma = detectarIdioma(estado.texto || $('#entrada').value);
+  $$('.pat').forEach(f=>{
+    const p = PATRONES.find(x=>x.n==f.dataset.n);
+    const inactivo = p && p.en && idioma!=='en';
+    f.classList.toggle('apagada', !!inactivo);
+  });
+}
+function patronesActivos(){
+  const idioma = detectarIdioma(estado.texto);
+  return PATRONES.filter(p=>{
+    const c = $('#pat-'+p.n);
+    if(!c || !c.checked) return false;
+    if(p.en && idioma!=='en') return false;
+    return true;
+  }).sort((a,b)=> (a.g==='ritmo'?-1:0) - (b.g==='ritmo'?-1:0));
+}
+
+function guardarAjustes(){
+  const ajustes = {
+    modelo: $('#modelo').value, idioma: $('#idioma').value, disciplina: $('#disciplina').value,
+    audit: $('#chk-audit').checked,
+    patrones: PATRONES.map(p=>({n:p.n, on: $('#pat-'+p.n)? $('#pat-'+p.n).checked : p.on}))
+  };
+  try{ localStorage.setItem('sobria_ajustes', JSON.stringify(ajustes)); }catch(e){}
+  try{ if($('#apikey').value) localStorage.setItem('ia_openai_key', $('#apikey').value); }catch(e){}
+}
+function cargarAjustes(){
+  try{
+    const k = localStorage.getItem('ia_openai_key'); if(k) $('#apikey').value = k;
+    const a = JSON.parse(localStorage.getItem('sobria_ajustes')||'null');
+    if(a){
+      if(a.modelo) $('#modelo').value = a.modelo;
+      if(a.idioma) $('#idioma').value = a.idioma;
+      if(a.disciplina) $('#disciplina').value = a.disciplina;
+      if(typeof a.audit==='boolean') $('#chk-audit').checked = a.audit;
+      if(a.patrones) a.patrones.forEach(p=>{ const c=$('#pat-'+p.n); if(c) c.checked = p.on; });
+    }
+  }catch(e){}
+}
+
+function contarEntrada(){
+  const t = $('#entrada').value;
+  estado.texto = t;
+  $('#cuenta').textContent = `${palabras(t).length} palabras · ${parrafos(t).length} párrafos · ${frasear(t).length} frases`;
+  actualizarCuentas();
+}
+
+/* ---------- 5. Lectura de ficheros ---------- */
+async function leerFichero(file){
+  const nombre = file.name.toLowerCase();
+  bitacora('Leyendo '+file.name);
+  if(nombre.endsWith('.md')||nombre.endsWith('.markdown')||nombre.endsWith('.txt')){
+    return await file.text();
+  }
+  if(nombre.endsWith('.docx')){
+    const buf = await file.arrayBuffer();
+    const r = await mammoth.convertToMarkdown({arrayBuffer: buf});
+    return r.value;
+  }
+  if(nombre.endsWith('.pdf')){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+    let texto='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const pag = await pdf.getPage(i);
+      const c = await pag.getTextContent();
+      let linea='', y=null, bloque=[];
+      for(const item of c.items){
+        const ny = Math.round(item.transform[5]);
+        if(y!==null && Math.abs(ny-y)>3){ bloque.push(linea.trim()); linea=''; }
+        linea += item.str + (item.hasEOL?' ':'');
+        y = ny;
+      }
+      bloque.push(linea.trim());
+      texto += bloque.filter(Boolean).join('\n') + '\n\n';
+    }
+    // rehacer párrafos: unir líneas cortadas por el maquetado
+    return texto.replace(/([^\n.:;!?])\n(?!\n)/g,'$1 ').replace(/\n{3,}/g,'\n\n').trim();
+  }
+  throw new Error('Formato no admitido: '+file.name);
+}
+async function cargarFichero(file){
+  try{
+    const t = await leerFichero(file);
+    $('#entrada').value = t;
+    estado.origen = file.name;
+    $('#origen').textContent = 'Origen: '+file.name;
+    contarEntrada();
+    bitacora('Leído: '+palabras(t).length+' palabras','ok');
+  }catch(e){ bitacora('No se pudo leer el fichero: '+e.message,'err'); alert('No se pudo leer el fichero: '+e.message); }
+}
+
+/* ---------- 6. Llamada al modelo ---------- */
+async function llamar(mensajes, maxSalida){
+  const key = $('#apikey').value.trim();
+  if(!key) throw new Error('Falta la clave de OpenAI.');
+  const modelo = $('#modelo').value;
+  const cuerpo = {model: modelo, messages: mensajes};
+  if(/^gpt-5/.test(modelo)){ cuerpo.max_completion_tokens = maxSalida || 8000; }
+  else { cuerpo.max_tokens = maxSalida || 4000; cuerpo.temperature = 0.4; }
+  const r = await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+    body: JSON.stringify(cuerpo)
+  });
+  if(!r.ok){
+    const txt = await r.text();
+    throw new Error('API '+r.status+': '+txt.slice(0,300));
+  }
+  const d = await r.json();
+  return (d.choices && d.choices[0] && d.choices[0].message.content) || '';
+}
+
+function sistema(idioma, activos){
+  const disc = {medica:'medicina y biomedicina', ciencias:'ciencias experimentales', sociales:'ciencias sociales y educación', general:'académico general'}[$('#disciplina').value];
+  const voz = $('#voz').value.trim();
+  const reglas = activos.map(p=>`[${p.n}] ${p.t}: ${p.r}`).join('\n');
+  return `Eres un editor de textos académicos de ${disc}. Tu trabajo es quitar las huellas de escritura generada por IA para que el manuscrito suene a prosa humana profesional, SIN cambiar lo que dice.
+
+REGLAS INVIOLABLES
+- No inventes, no añadas y no elimines información. Todos los números, porcentajes, intervalos, valores p, nombres de fármacos, variables y citas del original deben aparecer literalmente en tu salida.
+- No añadas interpretaciones, conclusiones ni matices que no estuvieran en el original.
+- Conserva el idioma del original (${idioma==='en'?'inglés':'español'}). No traduzcas.
+- Conserva la estructura de párrafos, los encabezados de Markdown, las listas, las fórmulas y las referencias.
+- Si un fragmento ya está bien escrito, déjalo tal cual. No reescribas por reescribir.
+
+ORDEN DE TRABAJO
+1. Primero reestructura el ritmo de las frases (patrón 34) si está activo.
+2. Después aplica el resto de patrones activos.
+3. Nunca borres un conector en seco: sustitúyelo o reestructura.
+
+PATRONES ACTIVOS
+${reglas}
+${voz? `\nVOZ DEL AUTOR (calíbrate con esta muestra: longitud de frase, repertorio de conectores, densidad de citas; no copies su contenido)\n"""${voz.slice(0,2500)}"""` : ''}
+
+FORMATO DE RESPUESTA, exactamente así y sin nada más:
+===TEXTO===
+(el texto reescrito completo, con los mismos párrafos)
+===CAMBIOS===
+(una línea por cambio relevante, formato: número de patrón | antes | después; máximo 12 líneas, las más representativas)`;
+}
+
+function trocear(texto, maxPal){
+  const ps = texto.split(/\n\s*\n/);
+  const trozos=[]; let actual=[], n=0;
+  for(const p of ps){
+    const np = palabras(p).length;
+    if(n+np > maxPal && actual.length){ trozos.push(actual.join('\n\n')); actual=[]; n=0; }
+    actual.push(p); n+=np;
+  }
+  if(actual.length) trozos.push(actual.join('\n\n'));
+  return trozos;
+}
+function partir(resp){
+  const iT = resp.indexOf('===TEXTO===');
+  const iC = resp.indexOf('===CAMBIOS===');
+  let texto = iT>=0 ? resp.slice(iT+11, iC>=0?iC:undefined) : (iC>=0? resp.slice(0,iC) : resp);
+  const cambios = iC>=0 ? resp.slice(iC+13) : '';
+  texto = texto.replace(/^\s*\n/,'').replace(/\s+$/,'');
+  const lista = cambios.split('\n').map(l=>l.trim()).filter(l=>l && l.includes('|')).map(l=>{
+    const p = l.replace(/^[-*•]\s*/,'').replace(/^(patr[oó]n|pattern)\s*/i,'').split('|').map(x=>x.trim());
+    return {patron: p[0]||'', antes: p[1]||'', despues: p.slice(2).join(' | ')||''};
+  });
+  return {texto, cambios: lista};
+}
+
+/* ---------- 7. Proceso ---------- */
+function bitacora(msg, clase){
+  const b = $('#bitacora'); if(!b) return;
+  const d = document.createElement('div'); d.textContent = msg; if(clase) d.className = clase;
+  b.appendChild(d); b.scrollTop = b.scrollHeight;
+}
+function progreso(pct, titulo){
+  $('#progreso').classList.add('visible');
+  $('#barra').style.width = Math.max(0,Math.min(100,pct))+'%';
+  if(titulo) $('#paso-titulo').textContent = titulo;
+}
+
+async function humanizar(){
+  const texto = $('#entrada').value.trim();
+  if(!texto){ alert('Pega un texto o sube un fichero.'); return; }
+  if(!$('#apikey').value.trim()){ alert('Hace falta la clave de OpenAI.'); $('#apikey').focus(); return; }
+  const activos = patronesActivos();
+  if(!activos.length){ alert('Activa al menos un patrón.'); return; }
+
+  estado.texto = texto; estado.parar = false; estado.cambios=[]; estado.avisos=[];
+  guardarAjustes();
+  $('#bitacora').innerHTML=''; $('#btn-humanizar').disabled = true; $('#btn-parar').style.display='';
+  $('#resultados').classList.remove('visible');
+
+  const idioma = detectarIdioma(texto);
+  estado.antes = medir(texto);
+  bitacora(`Idioma: ${idioma==='en'?'inglés':'español'} · ${activos.length} patrones activos · huella inicial ${estado.antes.indice}/100`);
+
+  const trozos = trocear(texto, 650);
+  bitacora(`El manuscrito se procesa en ${trozos.length} bloque(s).`);
+  const sys = sistema(idioma, activos);
+  const salidas = [];
+
+  try{
+    for(let i=0;i<trozos.length;i++){
+      if(estado.parar){ bitacora('Detenido por el usuario.','err'); break; }
+      progreso((i/trozos.length)*100*(0.7), `Bloque ${i+1} de ${trozos.length} · primera pasada`);
+      const contexto = salidas.length ? `Contexto: el bloque anterior terminaba así (no lo reescribas, solo enlaza con él):\n"""${salidas[salidas.length-1].slice(-500)}"""\n\n` : '';
+      let resp = await llamar([
+        {role:'system', content: sys},
+        {role:'user', content: contexto+'Reescribe el siguiente bloque siguiendo los patrones activos.\n\n===ENTRADA===\n'+trozos[i]}
+      ], 8000);
+      let r = partir(resp);
+      bitacora(`Bloque ${i+1}: primera pasada lista (${r.cambios.length} cambios anotados)`);
+
+      if($('#chk-audit').checked && !estado.parar){
+        progreso(((i+0.5)/trozos.length)*100*0.7, `Bloque ${i+1} de ${trozos.length} · autoauditoría`);
+        const resp2 = await llamar([
+          {role:'system', content: sys},
+          {role:'user', content:
+`Este es el original y tu borrador. Haz la segunda pasada de autoauditoría del skill:
+1. Pregúntate qué sigue delatando al borrador como texto de IA. Revisa: longitudes de frase todavía uniformes (¿tiene cada párrafo una frase claramente más corta y otra más larga que la media?), tres o más frases seguidas con la misma apertura, vocabulario del patrón 7 y adverbios ornamentales que hayan sobrevivido, cadena de conectores rota.
+2. Corrige todo lo que encuentres.
+3. Comprobaciones obligatorias: cero rayas largas; cohesión de párrafo; ritmo. Y verifica que todas las cifras y citas del original siguen presentes.
+
+===ORIGINAL===
+${trozos[i]}
+
+===BORRADOR===
+${r.texto}`}
+        ], 8000);
+        const r2 = partir(resp2);
+        if(r2.texto && palabras(r2.texto).length > palabras(trozos[i]).length*0.5){
+          r = {texto: r2.texto, cambios: r.cambios.concat(r2.cambios)};
+          bitacora(`Bloque ${i+1}: autoauditoría aplicada`,'ok');
+        } else {
+          bitacora(`Bloque ${i+1}: la autoauditoría devolvió un texto sospechosamente corto; se conserva la primera pasada.`,'err');
+        }
+      }
+
+      let final = r.texto;
+      if($('#pat-13').checked || $('#pat-15').checked) final = limpiarTipografia(final);
+      salidas.push(final);
+      estado.cambios.push(...r.cambios.map(c=>({...c, bloque:i+1})));
+    }
+  }catch(e){
+    bitacora('Error: '+e.message,'err');
+    alert('Se ha interrumpido el proceso.\n\n'+e.message);
+  }
+
+  $('#btn-humanizar').disabled = false; $('#btn-parar').style.display='none';
+  if(!salidas.length){ progreso(0,'Sin resultado'); return; }
+
+  progreso(85,'Verificando');
+  estado.salida = salidas.join('\n\n');
+  estado.despues = medir(estado.salida);
+  estado.avisos = verificar(texto, estado.salida);
+  progreso(100, `Hecho · huella ${estado.antes.indice} → ${estado.despues.indice}`);
+  bitacora(`Huella de IA: ${estado.antes.indice}/100 → ${estado.despues.indice}/100`, estado.despues.indice<estado.antes.indice?'ok':'err');
+  pintarResultados();
+  $('#resultados').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ---------- 8. Resultados ---------- */
+function diffPalabras(a,b){
+  const A=a.split(/(\s+)/), B=b.split(/(\s+)/);
+  const n=A.length, m=B.length;
+  if(n*m > 400000) return {a:[{t:a,k:'='}], b:[{t:b,k:'='}]};
+  const L = Array.from({length:n+1},()=>new Uint16Array(m+1));
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--)
+    L[i][j] = A[i]===B[j] ? L[i+1][j+1]+1 : Math.max(L[i+1][j], L[i][j+1]);
+  const oa=[], ob=[]; let i=0,j=0;
+  while(i<n && j<m){
+    if(A[i]===B[j]){ oa.push({t:A[i],k:'='}); ob.push({t:B[j],k:'='}); i++; j++; }
+    else if(L[i+1][j] >= L[i][j+1]){ oa.push({t:A[i],k:'-'}); i++; }
+    else { ob.push({t:B[j],k:'+'}); j++; }
+  }
+  while(i<n){ oa.push({t:A[i++],k:'-'}); }
+  while(j<m){ ob.push({t:B[j++],k:'+'}); }
+  return {a:oa, b:ob};
+}
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function pintarDiff(trozos, tag){
+  const fund=[];
+  for(const x of trozos){
+    const u = fund[fund.length-1];
+    if(u && u.k===x.k) u.t += x.t; else fund.push({...x});
+  }
+  return fund.map(x=> x.k==='=' ? esc(x.t) : `<${tag}>${esc(x.t)}</${tag}>`).join('');
+}
+
+function pintarResultados(){
+  $('#resultados').classList.add('visible');
+  $('#salida').textContent = estado.salida;
+
+  // comparación párrafo a párrafo
+  const pa = parrafos(estado.texto), pb = parrafos(estado.salida);
+  const cont = $('#parejas'); cont.innerHTML='';
+  const n = Math.max(pa.length, pb.length);
+  for(let i=0;i<n;i++){
+    const a = pa[i]||'', b = pb[i]||'';
+    if(a===b && a) continue;
+    const d = diffPalabras(a,b);
+    const div = document.createElement('div');
+    div.className='pareja';
+    div.innerHTML = `<div class="antes"><span class="marca">Original · párrafo ${i+1}</span>${pintarDiff(d.a,'del')}</div>
+                     <div class="despues"><span class="marca">Humanizado</span>${pintarDiff(d.b,'ins')}</div>`;
+    cont.appendChild(div);
+  }
+  if(!cont.children.length) cont.innerHTML = '<div class="aviso ok"><b>Sin cambios</b>El modelo ha devuelto el texto igual que el original.</div>';
+
+  // métricas
+  pintarMetricas();
+
+  // cambios
+  const tc = $('#cambios');
+  if(estado.cambios.length){
+    tc.innerHTML = `<table><thead><tr><th style="width:70px">Patrón</th><th>Antes</th><th>Después</th></tr></thead><tbody>${
+      estado.cambios.map(c=>{
+        const num = (c.patron.match(/\d+/)||[''])[0];
+        const p = PATRONES.find(x=>x.n==num);
+        return `<tr><td class="num">${num? num+' · '+(p?p.t:'') : esc(c.patron)}</td><td>${esc(c.antes)}</td><td>${esc(c.despues)}</td></tr>`;
+      }).join('')}</tbody></table>`;
+  } else tc.innerHTML = '<p class="ayuda">El modelo no ha devuelto anotaciones de cambio. Usa la pestaña de comparación.</p>';
+
+  // avisos
+  const ta = $('#avisos'); ta.innerHTML='';
+  const textos = {
+    cifras:'Cifras del original que no encuentro en el resultado',
+    citas:'Citas o referencias del original que no encuentro en el resultado',
+    rayas:'Rayas largas supervivientes',
+    parrafos:'Cambio en el número de párrafos',
+    extension:'Cambio de extensión'
+  };
+  if(!estado.avisos.length){
+    ta.innerHTML = '<div class="aviso ok"><b>Verificación superada</b>Todas las cifras y citas del original aparecen en el resultado, no quedan rayas largas y la estructura de párrafos se mantiene.</div>';
+  } else {
+    for(const a of estado.avisos){
+      const div = document.createElement('div');
+      div.className = 'aviso'+(a.nivel==='bajo'?' ok':'');
+      div.innerHTML = `<b>${textos[a.tipo]||a.tipo}</b>${esc(a.detalle.slice(0,30).join(' · '))}${a.detalle.length>30?' …':''}`;
+      ta.appendChild(div);
+    }
+    const nota = document.createElement('p');
+    nota.className='ayuda';
+    nota.textContent = 'Una cifra puede aparecer aquí porque el modelo la ha reescrito en otro formato (0,65 frente a 0.65) o porque realmente ha desaparecido. Compruébalo en la pestaña de comparación antes de dar el texto por bueno.';
+    ta.appendChild(nota);
+  }
+}
+
+function pintarMetricas(){
+  const a = estado.antes, b = estado.despues;
+  const filas = [
+    ['Huella de IA (0 a 100)', a.indice, b.indice, 'menos', v=>v],
+    ['Longitud media de frase', a.mediaFrase, b.mediaFrase, 'neutro', v=>v.toFixed(1)+' pal.'],
+    ['Variabilidad de frase (DT)', a.dtFrase, b.dtFrase, 'mas', v=>v.toFixed(1)],
+    ['Frases de menos de 15 palabras', a.cortas, b.cortas, 'mas', v=>v],
+    ['Frases de más de 30 palabras', a.largas, b.largas, 'mas', v=>v],
+    ['Racha de aperturas nominales seguidas', a.rachaNominal, b.rachaNominal, 'menos', v=>v],
+    ['Vocabulario de IA por mil palabras', a.vocIA, b.vocIA, 'menos', v=>v.toFixed(1)],
+    ['Rayas largas', a.rayas, b.rayas, 'menos', v=>v],
+    ['Comillas tipográficas', a.comillas, b.comillas, 'menos', v=>v],
+    ['Muletillas por mil palabras', a.muletillas, b.muletillas, 'menos', v=>v.toFixed(1)],
+    ['Reformulaciones por mil palabras', a.parafrasis, b.parafrasis, 'menos', v=>v.toFixed(1)],
+    ['Frases de evaluación vacías', a.evaluacion, b.evaluacion, 'menos', v=>v],
+    ['Paralelismos negativos', a.paralelismo, b.paralelismo, 'menos', v=>v],
+    ['Enumeraciones de tres por mil palabras', a.reglaTres, b.reglaTres, 'menos', v=>v.toFixed(1)],
+    ['Extensión', a.palabras, b.palabras, 'neutro', v=>v+' pal.']
+  ];
+  const juicio = (d, dir)=>{
+    if(dir==='neutro' || Math.abs(d)<0.05) return '';
+    if(dir==='menos') return d<0 ? 'mejor' : 'peor';
+    return d>0 ? 'mejor' : 'peor';
+  };
+  const pct = Math.round(a.indice? (a.indice-b.indice)/a.indice*100 : 0);
+  $('#metricas').innerHTML = `
+    <div class="aviso ${b.indice<a.indice?'ok':''}">
+      <b>Huella de IA: ${a.indice} → ${b.indice} sobre 100</b>
+      ${b.indice<a.indice? `Una caída del ${pct} %. El componente que más pesa es el ritmo de frase, tal como midió el autor del skill con detectores locales.` : 'El índice no ha bajado. Prueba a activar el patrón 34 y la segunda pasada, o usa un modelo más cuidadoso.'}
+      <div class="medidor"><i style="width:${b.indice}%;background:${b.indice<40?'var(--verde-ok)':b.indice<70?'var(--lapiz-azul)':'var(--lapiz-rojo)'}"></i></div>
+    </div>
+    <p class="ayuda">Todo esto se calcula en tu navegador sobre el texto, sin ningún detector externo. Son indicadores de estilo, no un veredicto sobre la autoría.</p>
+    <table><thead><tr><th>Indicador</th><th style="width:110px">Antes</th><th style="width:110px">Después</th></tr></thead><tbody>
+    ${filas.map(([n,va,vb,dir,fmt])=>`<tr><td>${n}</td><td class="num">${fmt(va)}</td><td class="num ${juicio(vb-va,dir)}">${fmt(vb)}</td></tr>`).join('')}
+    </tbody></table>
+    <p class="ayuda">Referencia del skill: en artículos médicos humanos bien escritos, la desviación típica de la longitud de frase dentro de un párrafo está entre 10 y 15 palabras; en los generados por IA, casi siempre por debajo de 5.</p>`;
+}
+
+/* ---------- 9. Exportación ---------- */
+function descargar(blob, nombre){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+}
+function baseNombre(){
+  const n = (estado.origen||'manuscrito').replace(/\.[^.]+$/,'');
+  return n.replace(/[^\w\-áéíóúñÁÉÍÓÚÑ ]/g,'').slice(0,60) || 'manuscrito';
+}
+function textoActual(){ return $('#salida').textContent; }
+
+function informeMarkdown(){
+  const a=estado.antes, b=estado.despues;
+  const f=(v)=> typeof v==='number'? (Number.isInteger(v)?v:v.toFixed(1)) : v;
+  return `# Informe de humanización — ${baseNombre()}
+
+Herramienta: SobrIA (reproduce el skill humanizer_academic de K. Matsui, MIT).
+Modelo: ${$('#modelo').value} · Fecha: ${new Date().toLocaleString('es-ES')}
+Patrones aplicados: ${patronesActivos().map(p=>p.n).join(', ')}
+
+## Huellas medidas en el navegador
+
+| Indicador | Antes | Después |
+|---|---|---|
+| Huella de IA (0-100) | ${a.indice} | ${b.indice} |
+| Longitud media de frase | ${f(a.mediaFrase)} | ${f(b.mediaFrase)} |
+| Variabilidad de frase (DT) | ${f(a.dtFrase)} | ${f(b.dtFrase)} |
+| Vocabulario de IA / 1000 pal. | ${f(a.vocIA)} | ${f(b.vocIA)} |
+| Rayas largas | ${a.rayas} | ${b.rayas} |
+| Extensión (palabras) | ${a.palabras} | ${b.palabras} |
+
+## Cambios anotados
+
+${estado.cambios.length? estado.cambios.map(c=>`- **Patrón ${c.patron}** · «${c.antes}» → «${c.despues}»`).join('\n') : '_Sin anotaciones._'}
+
+## Verificación
+
+${estado.avisos.length? estado.avisos.map(v=>`- ${v.tipo}: ${v.detalle.slice(0,20).join(' · ')}`).join('\n') : '- Todas las cifras y citas del original están presentes en el resultado.'}
+
+---
+Este informe documenta una edición de estilo. No acredita autoría humana ni exime de declarar el uso de IA.
+`;
+}
+
+async function exportarDocx(texto, nombre){
+  const {Document, Packer, Paragraph, TextRun, HeadingLevel} = docx;
+  const hijos = [];
+  for(const p of texto.split('\n')){
+    const t = p.trim();
+    if(!t){ hijos.push(new Paragraph('')); continue; }
+    const h = t.match(/^(#{1,4})\s+(.*)$/);
+    if(h){
+      hijos.push(new Paragraph({text:h[2], heading:[HeadingLevel.HEADING_1,HeadingLevel.HEADING_2,HeadingLevel.HEADING_3,HeadingLevel.HEADING_4][h[1].length-1]}));
+    } else {
+      hijos.push(new Paragraph({children:[new TextRun({text:t, font:'Times New Roman', size:24})], spacing:{after:160, line:360}}));
+    }
+  }
+  const doc = new Document({sections:[{properties:{}, children:hijos}]});
+  const blob = await Packer.toBlob(doc);
+  descargar(blob, nombre+'.docx');
+}
+function exportarPdf(texto, nombre){
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const ancho = 170, x = 20; let y = 22;
+  doc.setFont('times','normal'); doc.setFontSize(11);
+  for(const p of texto.split('\n')){
+    if(!p.trim()){ y += 4; continue; }
+    const h = p.match(/^(#{1,4})\s+(.*)$/);
+    const lineas = doc.splitTextToSize(h? h[2] : p.trim(), ancho);
+    if(h){ doc.setFont('times','bold'); doc.setFontSize(13); }
+    for(const l of lineas){
+      if(y > 275){ doc.addPage(); y = 22; }
+      doc.text(l, x, y); y += h? 7 : 5.6;
+    }
+    if(h){ doc.setFont('times','normal'); doc.setFontSize(11); y += 1.5; }
+    y += 3;
+  }
+  doc.save(nombre+'.pdf');
+}
+
+/* ---------- 10. Arranque ---------- */
+function init(){
+  pintarPatrones();
+  cargarAjustes();
+  contarEntrada();
+
+  $('#entrada').addEventListener('input', contarEntrada);
+  $('#idioma').addEventListener('change', ()=>{ actualizarCuentas(); guardarAjustes(); });
+  ['#modelo','#disciplina','#chk-audit'].forEach(s=>$(s).addEventListener('change', guardarAjustes));
+  $('#apikey').addEventListener('change', guardarAjustes);
+
+  $('#btn-fichero').addEventListener('click', ()=>$('#fichero').click());
+  $('#fichero').addEventListener('change', e=>{ if(e.target.files[0]) cargarFichero(e.target.files[0]); });
+  const zona = $('#zona');
+  ['dragenter','dragover'].forEach(ev=>zona.addEventListener(ev, e=>{e.preventDefault(); zona.classList.add('sobre');}));
+  ['dragleave','drop'].forEach(ev=>zona.addEventListener(ev, e=>{e.preventDefault(); zona.classList.remove('sobre');}));
+  zona.addEventListener('drop', e=>{ const f = e.dataTransfer.files[0]; if(f) cargarFichero(f); });
+
+  $('#btn-todos').addEventListener('click', ()=>{ PATRONES.forEach(p=>{const c=$('#pat-'+p.n); if(c) c.checked=true;}); actualizarCuentas(); guardarAjustes(); });
+  $('#btn-ninguno').addEventListener('click', ()=>{ PATRONES.forEach(p=>{const c=$('#pat-'+p.n); if(c) c.checked=false;}); actualizarCuentas(); guardarAjustes(); });
+  $('#btn-minimo').addEventListener('click', ()=>{
+    const min = [34,1,3,4,7,13,29,30,31,33];
+    PATRONES.forEach(p=>{const c=$('#pat-'+p.n); if(c) c.checked = min.includes(p.n);});
+    actualizarCuentas(); guardarAjustes();
+  });
+
+  $('#btn-humanizar').addEventListener('click', humanizar);
+  $('#btn-parar').addEventListener('click', ()=>{ estado.parar = true; bitacora('Deteniendo tras el bloque en curso…'); });
+  $('#btn-medir').addEventListener('click', ()=>{
+    const t = $('#entrada').value.trim();
+    if(!t){ alert('Pega un texto primero.'); return; }
+    estado.texto = t; estado.antes = medir(t); estado.despues = estado.antes;
+    estado.salida = t; estado.cambios=[]; estado.avisos=[];
+    pintarResultados();
+    $$('#pestanas button').forEach(b=>b.classList.toggle('activa', b.dataset.p==='p-metricas'));
+    $$('.panel').forEach(p=>p.classList.toggle('activo', p.id==='p-metricas'));
+    $('#resultados').scrollIntoView({behavior:'smooth', block:'start'});
+  });
+
+  $('#pestanas').addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b) return;
+    $$('#pestanas button').forEach(x=>x.classList.toggle('activa', x===b));
+    $$('.panel').forEach(p=>p.classList.toggle('activo', p.id===b.dataset.p));
+  });
+
+  $('#exp-md').addEventListener('click', ()=>descargar(new Blob([textoActual()],{type:'text/markdown'}), baseNombre()+'-humanizado.md'));
+  $('#exp-docx').addEventListener('click', ()=>exportarDocx(textoActual(), baseNombre()+'-humanizado').catch(e=>alert('No se pudo generar el Word: '+e.message)));
+  $('#exp-pdf').addEventListener('click', ()=>{ try{ exportarPdf(textoActual(), baseNombre()+'-humanizado'); }catch(e){ alert('No se pudo generar el PDF: '+e.message); } });
+  $('#exp-copiar').addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(textoActual()); $('#exp-copiar').textContent='Copiado'; setTimeout(()=>$('#exp-copiar').textContent='Copiar',1500); }
+    catch(e){ alert('El navegador no ha dejado copiar. Selecciona el texto a mano.'); }
+  });
+  $('#exp-informe').addEventListener('click', ()=>descargar(new Blob([informeMarkdown()],{type:'text/markdown'}), baseNombre()+'-informe.md'));
+}
+document.addEventListener('DOMContentLoaded', init);
+
+</script>
+</body>
+</html>
